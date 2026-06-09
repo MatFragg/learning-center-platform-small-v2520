@@ -46,9 +46,23 @@ pipeline {
 
 	 stage ('SonarQube Analysis') {
         steps {
+			// 1. Enviar el código a analizar a SonarQube
             withSonarQubeEnv('MiSonarServer') {
                 sh 'mvn clean verify sonar:sonar'
             }
+			// 2. Pausar el pipeline y esperar la respuesta del Webhook de SonarQube
+	        script {
+	            timeout(time: 10, unit: 'MINUTES') { // Evita que se quede bloqueado permanentemente si cae la red
+	                // Este paso intercepta la notificación enviada al puerto 9089
+	                def qg = waitForQualityGate()
+	                
+	                // 3. Evaluar el estado del Quality Gate
+	                if (qg.status != 'OK') {
+	                    error "El pipeline se ha detenido porque el código no superó el Quality Gate de SonarQube. Estado: ${qg.status}"
+	                }
+	            }
+	        }
+
         }
      }
 
