@@ -5,8 +5,10 @@ pipeline {
     jdk 'JDK_24'
   }
 	environment {
+		REGISTRY_USER = "pcsijflo" // Cambia por tu usuario real de Docker Hub
+        IMAGE_NAME    = "mi-backend-spring"
         // Nombre de la imagen que vamos a crear para nuestra aplicación
-        IMAGE_NAME = "learning-center-small"
+        IMAGE_NAME = "learning-center-platform-small"
         TAG        = "${env.BUILD_NUMBER}" // Usa el número de ejecución de Jenkins como versión
     }
 
@@ -66,15 +68,9 @@ pipeline {
         }
      }
 
-	  stage('Construir Imagen Docker') {
+	  /*stage('Construir  y Publicar  Imagen Docker') {
             steps {
                 script {
-                    echo "Iniciando la construcción de la imagen de Docker: ${IMAGE_NAME}:${TAG}"
-                    
-                    // Ejecuta el comando de Docker utilizando el socket compartido del Host
-                    // Supone que tienes un archivo 'Dockerfile' en la raíz de tu proyecto Spring Boot
-                    //sh "docker build -t ${IMAGE_NAME}:${TAG} ."
-                    //sh "docker build -t ${IMAGE_NAME}:latest ."
 
 					echo "Construyendo imagen híbrida/compatible con servidores de producción (AMD64)..."
 					// Usamos 'buildx' para asegurar que la imagen de salida sea estrictamente para plataformas de 64 bits estándar
@@ -82,6 +78,22 @@ pipeline {
 					sh "docker buildx build --platform linux/amd64 -t ${IMAGE_NAME}:latest --load ."
                     
                     echo "Imagen construida exitosamente."
+                }
+            }
+        }*/
+
+	  stage('Construir y Publicar Imagen Docker') {
+            steps {
+                // Nos autenticamos de forma segura en Docker Hub usando el ID de credenciales de Jenkins
+                withCredentials([usernamePassword(credentialsId: 'DOCKER_HUB_CREDENTIALS', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    script {
+                        echo "Iniciando sesión en Docker Hub..."
+                        sh "echo '${DOCKER_PASS}' | docker login -u '${DOCKER_USER}' --password-stdin"
+
+                        echo "Construyendo imagen optimizada AMD64..."
+                        // Compilamos forzando la plataforma AMD64 para evitar el error 'exec format error' en Render
+                        sh "docker buildx build --platform linux/amd64 -t ${REGISTRY_USER}/${IMAGE_NAME}:${TAG} -t ${REGISTRY_USER}/${IMAGE_NAME}:latest --push ."
+                    }
                 }
             }
         }
